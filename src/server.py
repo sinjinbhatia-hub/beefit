@@ -19,7 +19,7 @@ app.add_middleware(
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://postgres:GUlVZnKeNQoLXPbOkIqyFAEcnCMHDVSF@postgres.railway.internal:5432/railway"
+    "postgresql://postgres:GUlVZnKeNQoLXPbOkIqyFAEcnCMHDVSF@shuttle.proxy.rlwy.net:31411/railway"
 )
 TAU_FITNESS  = 45
 TAU_FATIGUE  = 7
