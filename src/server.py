@@ -31,20 +31,11 @@ def get_conn():
 def compute_banister():
     try:
         conn = get_conn()
-        cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur  = conn.cursor()
         cur.execute("""
-            SELECT date, SUM(weight * reps * POWER(weight / NULLIF(max_1rm, 0), 2)) AS trimp
-            FROM (
-                SELECT date, exercise_name, weight, reps,
-                       MAX(weight * (1 + reps / 30.0)) OVER (
-                           PARTITION BY exercise_name
-                           ORDER BY date
-                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                       ) AS max_1rm
-                FROM workouts
-                WHERE weight > 0 AND reps > 0
-            ) sub
-            GROUP BY date
+            SELECT date, exercise_name, weight, reps
+            FROM workouts
+            WHERE weight > 0 AND reps > 0
             ORDER BY date
         """)
         rows = cur.fetchall()
@@ -56,26 +47,32 @@ def compute_banister():
     if not rows:
         return 0, 0, []
 
-    # Fill in missing dates with 0 trimp
-    from_date = rows[0]['date']
-    to_date   = date.today()
-    date_map  = {r['date']: float(r['trimp'] or 0) for r in rows}
+    import pandas as pd
+    df = pd.DataFrame(rows, columns=['date','exercise_name','weight','reps'])
+    df['date'] = pd.to_datetime(df['date'])
+    df['estimated_1rm'] = df['weight'] * (1 + df['reps'] / 30)
+    df = df.sort_values('date')
+    df['max_1rm'] = df.groupby('exercise_name')['estimated_1rm'].cummax()
+    df['intensity'] = df['weight'] / df['max_1rm']
+    df['trimp'] = df['weight'] * df['reps'] * (df['intensity'] ** 2)
+
+    daily = df.groupby('date')['trimp'].sum().reset_index()
+    all_dates = pd.date_range(daily['date'].min(), date.today())
+    daily = daily.set_index('date').reindex(all_dates, fill_value=0).reset_index()
+    daily.columns = ['date', 'trimp']
 
     fitness, fatigue = 0.0, 0.0
     history = []
-    current = from_date
-    while current <= to_date:
-        trimp   = date_map.get(current, 0.0)
-        fitness = fitness * np.exp(-1 / TAU_FITNESS) + trimp
-        fatigue = fatigue * np.exp(-1 / TAU_FATIGUE) + trimp
+    for _, row in daily.iterrows():
+        fitness = fitness * np.exp(-1 / TAU_FITNESS) + row['trimp']
+        fatigue = fatigue * np.exp(-1 / TAU_FATIGUE) + row['trimp']
         history.append({
-            "date":        str(current),
-            "trimp":       round(trimp, 1),
+            "date":        str(row['date'].date()),
+            "trimp":       round(float(row['trimp']), 1),
             "fitness":     round(fitness, 1),
             "fatigue":     round(fatigue, 1),
             "performance": round(fitness - fatigue, 1)
         })
-        current += timedelta(days=1)
 
     return fitness, fatigue, history
 
