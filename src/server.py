@@ -128,16 +128,13 @@ def root():
 
 @app.get("/debug")
 def debug():
+    env_keys = [k for k in os.environ.keys()]
     db_url = os.environ.get("DATABASE_URL", "NOT SET")
-    try:
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM workouts")
-        count = cur.fetchone()[0]
-        conn.close()
-        return {"db_url_set": db_url != "NOT SET", "workout_rows": count}
-    except Exception as e:
-        return {"error": str(e), "db_url_set": db_url != "NOT SET"}
+    return {
+        "db_url_set": db_url != "NOT SET",
+        "db_url_prefix": db_url[:30] if db_url != "NOT SET" else "NOT SET",
+        "all_env_keys": env_keys
+    }
 
 @app.get("/state")
 def get_state():
