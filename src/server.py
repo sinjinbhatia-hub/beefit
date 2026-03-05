@@ -8,6 +8,9 @@ import os
 from datetime import date, timedelta
 
 app = FastAPI()
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Atlas API is running"}
 
 # ── Allow React frontend to talk to this server ────────────────────
 app.add_middleware(
@@ -27,6 +30,8 @@ TAU_FATIGUE    = 7
 
 # ── Shared helpers ─────────────────────────────────────────────────
 def compute_banister():
+    if not os.path.exists(TRAINING_FILE):
+        return 0, 0, []
     df = pd.read_csv(TRAINING_FILE)
     df["Date"] = pd.to_datetime(df["Date"]).dt.date
     df = df[df["Weight"] > 0].copy()
@@ -52,6 +57,8 @@ def compute_banister():
     return fitness, fatigue, history
 
 def get_1rms():
+    if not os.path.exists(TRAINING_FILE):
+        return {}
     df = pd.read_csv(TRAINING_FILE)
     df["Date"] = pd.to_datetime(df["Date"]).dt.date
     df = df[df["Weight"] > 0].copy()
@@ -68,6 +75,8 @@ def detect_phase(fitness, fatigue):
     else:              return "accumulation"
 
 def compute_base_load():
+    if not os.path.exists(TRAINING_FILE):
+        return 500.0
     df = pd.read_csv(TRAINING_FILE)
     df["Date"] = pd.to_datetime(df["Date"]).dt.date
     df = df[df["Weight"] > 0].copy()
