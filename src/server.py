@@ -17,7 +17,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://postgres:GUlVZnKeNQoLXPbOkIqyFAEcnCMHDVSF@postgres.railway.internal:5432/railway"
+)
 TAU_FITNESS  = 45
 TAU_FATIGUE  = 7
 
@@ -128,13 +131,15 @@ def root():
 
 @app.get("/debug")
 def debug():
-    env_keys = [k for k in os.environ.keys()]
-    db_url = os.environ.get("DATABASE_URL", "NOT SET")
-    return {
-        "db_url_set": db_url != "NOT SET",
-        "db_url_prefix": db_url[:30] if db_url != "NOT SET" else "NOT SET",
-        "all_env_keys": env_keys
-    }
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM workouts")
+        count = cur.fetchone()[0]
+        conn.close()
+        return {"db_connected": True, "workout_rows": count, "db_url_prefix": DATABASE_URL[:40]}
+    except Exception as e:
+        return {"db_connected": False, "error": str(e), "db_url_prefix": DATABASE_URL[:40]}
 
 @app.get("/state")
 def get_state():
@@ -147,8 +152,6 @@ def get_state():
         "phase":       phase,
         "history":     history[-90:]
     }
-
-    
 
 @app.get("/exercises")
 def get_exercises():
