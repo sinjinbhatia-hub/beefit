@@ -54,4 +54,4 @@ atlas/
 
 ---
 
-*Built by [Your Name] — Ohio State University, Mechanical Engineering & Applied Mathematics*
+*Built by Sinjin Bhatia — Ohio State University, Mechanical Engineering & Applied Mathematics*
