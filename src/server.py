@@ -126,6 +126,19 @@ def detect_phase(fitness, fatigue):
 def root():
     return {"status": "ok", "message": "Atlas API is running"}
 
+@app.get("/debug")
+def debug():
+    db_url = os.environ.get("DATABASE_URL", "NOT SET")
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM workouts")
+        count = cur.fetchone()[0]
+        conn.close()
+        return {"db_url_set": db_url != "NOT SET", "workout_rows": count}
+    except Exception as e:
+        return {"error": str(e), "db_url_set": db_url != "NOT SET"}
+
 @app.get("/state")
 def get_state():
     fitness, fatigue, history = compute_banister()
@@ -137,6 +150,8 @@ def get_state():
         "phase":       phase,
         "history":     history[-90:]
     }
+
+    
 
 @app.get("/exercises")
 def get_exercises():
