@@ -1,0 +1,236 @@
+{
+  "exercises": {
+    "Pull Up": {
+      "muscles_primary": ["back", "biceps"],
+      "muscles_secondary": ["shoulders", "core"],
+      "type": "compound",
+      "training_goal": "strength",
+      "equipment": "pullup_bar",
+      "1rm_method": "weighted"
+    },
+    "Bench Press (Barbell)": {
+      "muscles_primary": ["chest", "triceps"],
+      "muscles_secondary": ["shoulders"],
+      "type": "compound",
+      "training_goal": "strength",
+      "equipment": "barbell",
+      "1rm_method": "epley"
+    },
+    "Incline Bench Press (Dumbbell)": {
+      "muscles_primary": ["chest", "shoulders"],
+      "muscles_secondary": ["triceps"],
+      "type": "compound",
+      "training_goal": "hypertrophy",
+      "equipment": "dumbbell",
+      "1rm_method": "epley"
+    },
+    "Seated Overhead Press (Dumbbell)": {
+      "muscles_primary": ["shoulders", "triceps"],
+      "muscles_secondary": ["core"],
+      "type": "compound",
+      "training_goal": "strength",
+      "equipment": "dumbbell",
+      "1rm_method": "epley"
+    },
+    "Bulgarian Split Squat": {
+      "muscles_primary": ["quads", "glutes"],
+      "muscles_secondary": ["hamstrings", "core"],
+      "type": "compound",
+      "training_goal": "hypertrophy",
+      "equipment": "dumbbell",
+      "1rm_method": "epley"
+    },
+    "Hammer Curl (Dumbbell)": {
+      "muscles_primary": ["biceps", "forearms"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "dumbbell",
+      "1rm_method": "epley"
+    },
+    "Incline Curl (Dumbbell)": {
+      "muscles_primary": ["biceps"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "dumbbell",
+      "1rm_method": "epley"
+    },
+    "Bicep Curl (Dumbbell)": {
+      "muscles_primary": ["biceps"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "dumbbell",
+      "1rm_method": "epley"
+    },
+    "Lateral Raise (Dumbbell)": {
+      "muscles_primary": ["shoulders"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "dumbbell",
+      "1rm_method": "epley"
+    },
+    "Bent Over Row (Barbell)": {
+      "muscles_primary": ["back", "rear_delts"],
+      "muscles_secondary": ["biceps", "core"],
+      "type": "compound",
+      "training_goal": "strength",
+      "equipment": "barbell",
+      "1rm_method": "epley"
+    },
+    "Romanian Deadlift (Barbell)": {
+      "muscles_primary": ["hamstrings", "glutes"],
+      "muscles_secondary": ["back", "core"],
+      "type": "compound",
+      "training_goal": "hypertrophy",
+      "equipment": "barbell",
+      "1rm_method": "epley"
+    },
+    "Squat (Barbell)": {
+      "muscles_primary": ["quads", "glutes"],
+      "muscles_secondary": ["hamstrings", "core", "back"],
+      "type": "compound",
+      "training_goal": "strength",
+      "equipment": "barbell",
+      "1rm_method": "epley"
+    },
+    "Lat Pulldown (Cable)": {
+      "muscles_primary": ["back", "biceps"],
+      "muscles_secondary": ["shoulders"],
+      "type": "compound",
+      "training_goal": "hypertrophy",
+      "equipment": "cable",
+      "1rm_method": "epley"
+    },
+    "Triceps Pushdown (Cable - Straight Bar)": {
+      "muscles_primary": ["triceps"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "cable",
+      "1rm_method": "epley"
+    },
+    "Skullcrusher (Barbell)": {
+      "muscles_primary": ["triceps"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "barbell",
+      "1rm_method": "epley"
+    },
+    "Chest Dip": {
+      "muscles_primary": ["chest", "triceps"],
+      "muscles_secondary": ["shoulders"],
+      "type": "compound",
+      "training_goal": "strength",
+      "equipment": "bodyweight",
+      "1rm_method": "weighted"
+    },
+    "L Sit": {
+      "muscles_primary": ["core", "hip_flexors"],
+      "muscles_secondary": ["triceps"],
+      "type": "skill",
+      "training_goal": "skill",
+      "equipment": "bodyweight",
+      "1rm_method": "reps_only"
+    },
+    "Hanging Leg Raise": {
+      "muscles_primary": ["core", "hip_flexors"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "endurance",
+      "equipment": "pullup_bar",
+      "1rm_method": "reps_only"
+    },
+    "Seated Leg Curl (Machine)": {
+      "muscles_primary": ["hamstrings"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "machine",
+      "1rm_method": "epley"
+    },
+    "Lying Leg Curl (Machine)": {
+      "muscles_primary": ["hamstrings"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "machine",
+      "1rm_method": "epley"
+    },
+    "Leg Extension (Machine)": {
+      "muscles_primary": ["quads"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "machine",
+      "1rm_method": "epley"
+    },
+    "Face Pull (Cable)": {
+      "muscles_primary": ["rear_delts", "upper_back"],
+      "muscles_secondary": ["biceps"],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "cable",
+      "1rm_method": "epley"
+    },
+    "Iso-Lateral Row (Machine)": {
+      "muscles_primary": ["back", "biceps"],
+      "muscles_secondary": ["rear_delts"],
+      "type": "compound",
+      "training_goal": "hypertrophy",
+      "equipment": "machine",
+      "1rm_method": "epley"
+    },
+    "Reverse Fly (Machine)": {
+      "muscles_primary": ["rear_delts", "upper_back"],
+      "muscles_secondary": [],
+      "type": "isolation",
+      "training_goal": "hypertrophy",
+      "equipment": "machine",
+      "1rm_method": "epley"
+    }
+  },
+  "splits": {
+    "sinjin": {
+      "Upper Push": [
+        "Bench Press (Barbell)",
+        "Incline Bench Press (Dumbbell)",
+        "Seated Overhead Press (Dumbbell)",
+        "Chest Dip",
+        "Lateral Raise (Dumbbell)",
+        "Triceps Pushdown (Cable - Straight Bar)",
+        "Skullcrusher (Barbell)"
+      ],
+      "Upper Pull": [
+        "Pull Up",
+        "Bent Over Row (Barbell)",
+        "Lat Pulldown (Cable)",
+        "Iso-Lateral Row (Machine)",
+        "Hammer Curl (Dumbbell)",
+        "Incline Curl (Dumbbell)",
+        "Bicep Curl (Dumbbell)",
+        "Face Pull (Cable)",
+        "Reverse Fly (Machine)",
+        "Hanging Leg Raise",
+        "L Sit"
+      ],
+      "Lower (Hypertrophy)": [
+        "Squat (Barbell)",
+        "Romanian Deadlift (Barbell)",
+        "Bulgarian Split Squat",
+        "Seated Leg Curl (Machine)",
+        "Leg Extension (Machine)"
+      ],
+      "Lower (Squat Strength)": [
+        "Squat (Barbell)",
+        "Romanian Deadlift (Barbell)",
+        "Bulgarian Split Squat",
+        "Seated Leg Curl (Machine)",
+        "Lying Leg Curl (Machine)"
+      ]
+    }
+  }
+}
