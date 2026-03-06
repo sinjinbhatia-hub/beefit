@@ -661,7 +661,14 @@ function Prescription({ workout, exercises, checkin, serverState, onNewDay }) {
 
   useEffect(() => {
     generateAIPrescription(exercises, checkin, serverState)
-      .then(result => { setAiResult(result); setLoading(false); })
+      .then(result => {
+        if (!result || !Array.isArray(result.exercises)) {
+          setError(result?.error || "AI returned an unexpected response. Check Railway logs.");
+        } else {
+          setAiResult(result);
+        }
+        setLoading(false);
+      })
       .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 
