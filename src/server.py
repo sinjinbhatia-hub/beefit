@@ -22,7 +22,7 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://postgres:GUlVZnKeNQoLXPbOkIqyFAEcnCMHDVSF@shuttle.proxy.rlwy.net:31411/railway"
 )
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "PASTE_YOUR_KEY_HERE")
 TAU_FITNESS  = 45
 TAU_FATIGUE  = 7
 EXERCISES_FILE = "exercises.json"
