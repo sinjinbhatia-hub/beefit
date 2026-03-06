@@ -307,6 +307,39 @@ const STYLE = `
   }
   .readiness-info .detail { font-size: 13px; color: var(--muted); line-height: 1.6; }
 
+  .checkin-banner {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--green);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .checkin-banner-left { display: flex; align-items: center; gap: 16px; }
+  .checkin-banner-score {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .checkin-banner-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .checkin-banner-status {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
   .split-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -446,7 +479,6 @@ const STYLE = `
 
 const MUSCLES = ["quads","hamstrings","glutes","back","chest","shoulders","biceps","triceps"];
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 function calcReadiness(checkin) {
   const { sleep, soreness, mood, nutrition, stress } = checkin;
   const avgSoreness = Object.values(soreness).reduce((a,b) => a+b, 0) / MUSCLES.length;
@@ -478,15 +510,33 @@ function prescribe(exercise, readiness, soreness) {
   return { sets, reps, weight, pct: Math.round(adjIntensity * 100), warning: isSore ? "sore — load reduced 15%" : null };
 }
 
-// ── Components ───────────────────────────────────────────────────────────────
+// Converts server checkin row → local checkin format
+function serverToLocalCheckin(data) {
+  return {
+    sleep:     data.sleep_quality ?? 0.7,
+    mood:      data.mood          ?? 0.7,
+    nutrition: data.nutrition     ?? 0.7,
+    stress:    data.stress        ?? 0.3,
+    soreness: {
+      quads:       data.soreness_quads       ?? 0,
+      hamstrings:  data.soreness_hamstrings  ?? 0,
+      glutes:      data.soreness_glutes      ?? 0,
+      back:        data.soreness_back        ?? 0,
+      chest:       data.soreness_chest       ?? 0,
+      shoulders:   data.soreness_shoulders   ?? 0,
+      biceps:      data.soreness_biceps      ?? 0,
+      triceps:     data.soreness_triceps     ?? 0,
+    }
+  };
+}
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
 function Dashboard({ checkin, onNav, serverState }) {
   const readiness = checkin ? calcReadiness(checkin) : null;
-
-  const fitness     = serverState ? serverState.fitness     : null;
-  const fatigue     = serverState ? serverState.fatigue     : null;
-  const performance = serverState ? serverState.performance : null;
-  const phase       = serverState ? serverState.phase       : null;
-
+  const fitness     = serverState?.fitness     ?? null;
+  const fatigue     = serverState?.fatigue     ?? null;
+  const performance = serverState?.performance ?? null;
+  const phase       = serverState?.phase       ?? null;
   const history = serverState ? serverState.history.slice(-28) : [];
   const maxTrimp = history.length ? Math.max(...history.map(h => h.trimp), 1) : 1;
 
@@ -532,6 +582,23 @@ function Dashboard({ checkin, onNav, serverState }) {
         <div className="phase-desc">{phase ? phaseDescs[phase] : 'Loading...'}</div>
       </div>
 
+      {checkin && (
+        <div className="checkin-banner">
+          <div className="checkin-banner-left">
+            <div className="checkin-score" style={{fontFamily:"var(--font-display)", fontSize:"36px", fontWeight:700, color: getReadinessColor(readiness)}}>
+              {readiness.toFixed(2)}
+            </div>
+            <div>
+              <div className="checkin-banner-label">Today's Readiness</div>
+              <div className="checkin-banner-status" style={{color: getReadinessColor(readiness)}}>
+                {getReadinessStatus(readiness).label}
+              </div>
+            </div>
+          </div>
+          <button className="btn btn-secondary" onClick={() => onNav("checkin")}>Edit</button>
+        </div>
+      )}
+
       <div className="section-title">28-Day Load History</div>
       <div className="bar-chart">
         <div style={{fontFamily:"var(--font-mono)", fontSize:"10px", color:"var(--muted)", letterSpacing:"2px", marginBottom:"4px"}}>
@@ -550,14 +617,14 @@ function Dashboard({ checkin, onNav, serverState }) {
       <div style={{display:"flex", gap:"12px", flexWrap:"wrap"}}>
         {!checkin && <button className="btn btn-primary" onClick={() => onNav("checkin")}>Morning Check-in</button>}
         {checkin  && <button className="btn btn-primary" onClick={() => onNav("workout")}>Get Today's Prescription</button>}
-        {checkin  && <button className="btn btn-secondary" onClick={() => onNav("checkin")}>Edit Check-in</button>}
       </div>
     </div>
   );
 }
 
-function CheckIn({ onComplete }) {
-  const [vals, setVals] = useState({
+// ── CheckIn ──────────────────────────────────────────────────────────────────
+function CheckIn({ onComplete, existing }) {
+  const [vals, setVals] = useState(existing || {
     sleep: 0.7, mood: 0.7, nutrition: 0.7, stress: 0.3,
     soreness: Object.fromEntries(MUSCLES.map(m => [m, 0]))
   });
@@ -627,6 +694,15 @@ function CheckIn({ onComplete }) {
 
   return (
     <div>
+      {existing && (
+        <div style={{
+          fontFamily:"var(--font-mono)", fontSize:"10px", color:"var(--green)",
+          letterSpacing:"2px", marginBottom:"20px", padding:"10px 14px",
+          border:"1px solid var(--green)", background:"rgba(0,255,135,0.05)"
+        }}>
+          ✓ CHECK-IN LOADED FROM TODAY — EDIT AND RESUBMIT TO UPDATE
+        </div>
+      )}
       <div className="section-title">Daily Vitals</div>
       <div className="checkin-grid">
         <SliderField label="Sleep Quality" key_="sleep"     val={vals.sleep} />
@@ -652,12 +728,12 @@ function CheckIn({ onComplete }) {
 
       <div className="section-title">Notes</div>
       <textarea className="notes-field"
-        placeholder="How are you feeling? Anything worth noting — sleep quality, stress, diet..."
+        placeholder="How are you feeling? Anything worth noting..."
         value={notes} onChange={e => setNotes(e.target.value)} />
 
       <div style={{display:"flex", alignItems:"center", gap:"16px", flexWrap:"wrap"}}>
         <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
-          {saving ? "Saving..." : "Calculate Readiness"}
+          {saving ? "Saving..." : existing ? "Update Check-in" : "Calculate Readiness"}
         </button>
         <div style={{fontFamily:"var(--font-mono)", fontSize:"11px", color:"var(--muted)"}}>
           Live preview: <span style={{color: getReadinessColor(readiness)}}>{readiness.toFixed(2)}</span>
@@ -667,6 +743,7 @@ function CheckIn({ onComplete }) {
   );
 }
 
+// ── WorkoutSelect ────────────────────────────────────────────────────────────
 function WorkoutSelect({ checkin, onSelect, serverExercises }) {
   const [selected, setSelected] = useState(null);
   const [picked, setPicked] = useState({});
@@ -741,6 +818,7 @@ function WorkoutSelect({ checkin, onSelect, serverExercises }) {
   );
 }
 
+// ── Prescription ─────────────────────────────────────────────────────────────
 function Prescription({ workout, exercises, checkin, serverState }) {
   const readiness = calcReadiness(checkin);
   const status = getReadinessStatus(readiness);
@@ -801,23 +879,37 @@ function Prescription({ workout, exercises, checkin, serverState }) {
 
 // ── App Shell ────────────────────────────────────────────────────────────────
 export default function App() {
-  const [view, setView]           = useState("dashboard");
-  const [checkin, setCheckin]     = useState(null);
-  const [workout, setWorkout]     = useState(null);
-  const [exercises, setExes]      = useState([]);
+  const [view, setView]                       = useState("dashboard");
+  const [checkin, setCheckin]                 = useState(null);
+  const [workout, setWorkout]                 = useState(null);
+  const [exercises, setExes]                  = useState([]);
   const [serverState, setServerState]         = useState(null);
   const [serverExercises, setServerExercises] = useState(null);
+  const [loadingCheckin, setLoadingCheckin]   = useState(true);
 
   useEffect(() => {
+    // Load fitness state
     fetch(`${API}/state`)
       .then(r => r.json())
       .then(data => setServerState(data))
-      .catch(() => console.log("Could not load server state"));
+      .catch(() => {});
 
+    // Load exercise database
     fetch(`${API}/exercises`)
       .then(r => r.json())
       .then(data => setServerExercises(data))
-      .catch(() => console.log("Could not load exercises"));
+      .catch(() => {});
+
+    // Load today's check-in if it exists
+    fetch(`${API}/checkin/today`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.exists) {
+          setCheckin(serverToLocalCheckin(data.data));
+        }
+        setLoadingCheckin(false);
+      })
+      .catch(() => setLoadingCheckin(false));
   }, []);
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -847,23 +939,27 @@ export default function App() {
           ))}
         </div>
 
-        {view === "dashboard" && (
+        {loadingCheckin && (
+          <div className="loading">LOADING TODAY'S DATA...</div>
+        )}
+
+        {!loadingCheckin && view === "dashboard" && (
           <Dashboard checkin={checkin} onNav={setView} serverState={serverState} />
         )}
-        {view === "checkin" && (
-          <CheckIn onComplete={handleCheckin} />
+        {!loadingCheckin && view === "checkin" && (
+          <CheckIn onComplete={handleCheckin} existing={checkin} />
         )}
-        {view === "workout" && checkin && (
+        {!loadingCheckin && view === "workout" && checkin && (
           <WorkoutSelect checkin={checkin} onSelect={handleWorkout} serverExercises={serverExercises} />
         )}
-        {view === "workout" && !checkin && (
+        {!loadingCheckin && view === "workout" && !checkin && (
           <div style={{fontFamily:"var(--font-mono)", color:"var(--muted)", padding:"40px 0"}}>
             Complete your morning check-in first.
             <br/><br/>
             <button className="btn btn-primary" onClick={() => setView("checkin")}>Go to Check-in</button>
           </div>
         )}
-        {view === "prescription" && checkin && workout && (
+        {!loadingCheckin && view === "prescription" && checkin && workout && (
           <Prescription workout={workout} exercises={exercises} checkin={checkin} serverState={serverState} />
         )}
       </div>
