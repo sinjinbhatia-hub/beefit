@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 
 const API = "https://atlas-production-d795.up.railway.app";
-const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 
 const USER_PROFILE = {
   name: "Sinjin",
@@ -282,6 +281,27 @@ function serverToLocalCheckin(data) {
 
 // ── AI Prescription Engine ───────────────────────────────────────────────────
 async function generateAIPrescription(exercises, checkin, serverState) {
+  const readiness = calcReadiness(checkin);
+  const response = await fetch(`${API}/prescribe/ai`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      exercises,
+      readiness,
+      soreness: checkin.soreness,
+      sleep:     checkin.sleep,
+      mood:      checkin.mood,
+      nutrition: checkin.nutrition,
+      stress:    checkin.stress,
+    })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+// placeholder to avoid unused variable warning
+async function _unused(exercises, checkin, serverState) {
   const readiness = calcReadiness(checkin);
   const phase = serverState?.phase ?? "accumulation";
   const fitness = serverState?.fitness ?? 0;
