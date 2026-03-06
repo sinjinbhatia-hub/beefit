@@ -6,6 +6,7 @@ import psycopg2.extras
 import numpy as np
 import json
 import os
+import httpx
 from datetime import date, timedelta
 
 app = FastAPI()
@@ -21,25 +22,54 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://postgres:GUlVZnKeNQoLXPbOkIqyFAEcnCMHDVSF@shuttle.proxy.rlwy.net:31411/railway"
 )
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 TAU_FITNESS  = 45
 TAU_FATIGUE  = 7
-
 EXERCISES_FILE = "exercises.json"
 
-# ── DB connection ──────────────────────────────────────────────────
+USER_PROFILE = {
+    "name": "Sinjin",
+    "height": "6'2\"",
+    "weight": "185lbs",
+    "body_composition": "lean/shredded",
+    "training_level": "advanced",
+    "training_years": "3-7",
+    "current_goal_block": "Strength — Pull & Press",
+    "active_goals": ["Weighted pull-up +175lbs", "Bench press 315lbs"],
+    "all_goals": [
+        "Weighted pull-up +175lbs (bodyweight)",
+        "Bench press 315lbs",
+        "Windmill dunk",
+        "405lb squat",
+        "Full planche",
+        "Front lever"
+    ],
+    "considerations": [
+        "Long levers at 6'2\" — extra torque on knees, shoulders, elbows",
+        "Joint sensitivity — monitor high-stress positions",
+        "Advanced lifter — needs real intensity, not coddling",
+        "Feedback loop — prescription should adapt based on session feel"
+    ],
+    "exercise_notes": {
+        "Pull-Ups": "Bodyweight + added load. Track total weight. Currently working toward +175lbs added.",
+        "Bench Press": "Working toward 315. Long arms = wider ROM, prioritize scapular retraction.",
+        "Squat": "6'2\" with long femurs. Watch knee tracking and depth.",
+        "Planche": "Skill-based, not current priority block.",
+        "Front Lever": "Skill-based, not current priority block."
+    }
+}
+
+# ── DB ─────────────────────────────────────────────────────────────
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
-# ── Banister model from DB ─────────────────────────────────────────
 def compute_banister():
     try:
         conn = get_conn()
         cur  = conn.cursor()
         cur.execute("""
             SELECT date, exercise_name, weight, reps
-            FROM workouts
-            WHERE weight > 0 AND reps > 0
-            ORDER BY date
+            FROM workouts WHERE weight > 0 AND reps > 0 ORDER BY date
         """)
         rows = cur.fetchall()
         conn.close()
@@ -79,26 +109,6 @@ def compute_banister():
 
     return fitness, fatigue, history
 
-def compute_base_load():
-    try:
-        conn = get_conn()
-        cur  = conn.cursor()
-        cutoff = date.today() - timedelta(days=7)
-        cur.execute("""
-            SELECT AVG(daily_trimp) FROM (
-                SELECT date, SUM(weight * reps) AS daily_trimp
-                FROM workouts
-                WHERE weight > 0 AND reps > 0 AND date >= %s
-                GROUP BY date
-            ) sub
-        """, (cutoff,))
-        result = cur.fetchone()[0]
-        conn.close()
-        return float(result) if result else 500.0
-    except Exception as e:
-        print(f"DB error in compute_base_load: {e}")
-        return 500.0
-
 def get_1rms():
     try:
         conn   = get_conn()
@@ -106,8 +116,7 @@ def get_1rms():
         cutoff = date.today() - timedelta(days=90)
         cur.execute("""
             SELECT exercise_name, MAX(weight * (1 + reps / 30.0)) AS estimated_1rm
-            FROM workouts
-            WHERE weight > 0 AND reps > 0 AND date >= %s
+            FROM workouts WHERE weight > 0 AND reps > 0 AND date >= %s
             GROUP BY exercise_name
         """, (cutoff,))
         rows = cur.fetchall()
@@ -115,6 +124,33 @@ def get_1rms():
         return {r[0]: round(float(r[1]), 1) for r in rows}
     except Exception as e:
         print(f"DB error in get_1rms: {e}")
+        return {}
+
+def get_recent_performance(exercise_names, days=14):
+    """Get last N days of performance per exercise for AI context."""
+    try:
+        conn = get_conn()
+        cur  = conn.cursor()
+        cutoff = date.today() - timedelta(days=days)
+        cur.execute("""
+            SELECT exercise_name, date, MAX(weight) as max_weight, MAX(reps) as max_reps
+            FROM workouts
+            WHERE weight > 0 AND reps > 0 AND date >= %s
+            AND exercise_name = ANY(%s)
+            GROUP BY exercise_name, date
+            ORDER BY exercise_name, date DESC
+        """, (cutoff, exercise_names))
+        rows = cur.fetchall()
+        conn.close()
+        result = {}
+        for ex, d, w, r in rows:
+            if ex not in result:
+                result[ex] = []
+            if len(result[ex]) < 3:
+                result[ex].append({"date": str(d), "weight": w, "reps": r})
+        return result
+    except Exception as e:
+        print(f"DB error in get_recent_performance: {e}")
         return {}
 
 def detect_phase(fitness, fatigue):
@@ -246,6 +282,112 @@ def submit_checkin(payload: CheckInPayload):
     except Exception as e:
         print(f"DB error in submit_checkin: {e}")
     return {"readiness": readiness}
+
+class AIPrescriptionRequest(BaseModel):
+    exercises:  list
+    readiness:  float
+    soreness:   dict
+    sleep:      float = 0.7
+    mood:       float = 0.7
+    nutrition:  float = 0.7
+    stress:     float = 0.3
+
+@app.post("/prescribe/ai")
+async def prescribe_ai(req: AIPrescriptionRequest):
+    if not ANTHROPIC_API_KEY:
+        return {"error": "No API key configured"}
+
+    fitness, fatigue, _ = compute_banister()
+    phase = detect_phase(fitness, fatigue)
+    one_rms = get_1rms()
+    ex_names = [e["name"] for e in req.exercises]
+    recent = get_recent_performance(ex_names)
+
+    soreness_summary = ", ".join(
+        f"{m}: {'mild' if v <= 0.4 else 'high'}"
+        for m, v in req.soreness.items() if v > 0
+    ) or "none"
+
+    exercise_lines = []
+    for ex in req.exercises:
+        name = ex["name"]
+        one_rm = one_rms.get(name, ex.get("oneRM"))
+        note = USER_PROFILE["exercise_notes"].get(name, "")
+        recent_str = ""
+        if name in recent:
+            recent_str = " | recent: " + ", ".join(
+                f"{r['weight']}lbs×{r['reps']} ({r['date']})" for r in recent[name]
+            )
+        exercise_lines.append(
+            f"- {name} (type: {ex.get('type','compound')}, "
+            f"est. 1RM: {str(one_rm)+'lbs' if one_rm else 'unknown'}"
+            f"{recent_str}"
+            f"{', note: '+note if note else ''})"
+        )
+
+    prompt = f"""You are an elite strength and conditioning coach for {USER_PROFILE['name']}.
+
+ATHLETE PROFILE:
+- Height: {USER_PROFILE['height']}, Weight: {USER_PROFILE['weight']}, Composition: {USER_PROFILE['body_composition']}
+- Training level: {USER_PROFILE['training_level']} ({USER_PROFILE['training_years']} years)
+- Current goal block: {USER_PROFILE['current_goal_block']}
+- Active goals: {', '.join(USER_PROFILE['active_goals'])}
+- All goals: {', '.join(USER_PROFILE['all_goals'])}
+- Considerations: {'; '.join(USER_PROFILE['considerations'])}
+
+TODAY'S STATUS:
+- Readiness: {req.readiness:.2f}/1.0 ({'HIGH' if req.readiness >= 0.75 else 'MODERATE' if req.readiness >= 0.5 else 'LOW'})
+- Sleep: {round(req.sleep*10)}/10, Mood: {round(req.mood*10)}/10, Nutrition: {round(req.nutrition*10)}/10, Stress: {round(req.stress*10)}/10
+- Soreness: {soreness_summary}
+- Training phase: {phase.upper()}
+- Fitness (long-term): {round(fitness):,} | Fatigue (short-term): {round(fatigue):,}
+
+TODAY'S EXERCISES:
+{chr(10).join(exercise_lines)}
+
+Generate a precise, science-based prescription for this advanced athlete. Be direct — real numbers, not vague ranges unless genuinely warranted. Account for exercise-specific mechanics (pull-ups scale by total bodyweight + added load, skill work uses holds/progressions not % 1RM). If readiness is low, reduce volume but don't eliminate intensity entirely.
+
+Respond ONLY with valid JSON, no other text:
+{{
+  "focus_cue": "One powerful coaching cue for today",
+  "coaching_note": "2-3 sentences: context on today given readiness + phase + goals. Be direct.",
+  "exercises": [
+    {{
+      "name": "exercise name",
+      "sets": 4,
+      "reps": "5",
+      "load": "225lbs",
+      "intensity_note": "brief rationale",
+      "cue": "one technique cue specific to this athlete's body"
+    }}
+  ],
+  "recovery_note": "one sentence if relevant, else null"
+}}"""
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json"
+                },
+                json={
+                    "model": "claude-sonnet-4-20250514",
+                    "max_tokens": 1000,
+                    "messages": [{"role": "user", "content": prompt}]
+                }
+            )
+        data = response.json()
+        text = "".join(b.get("text", "") for b in data.get("content", []))
+        clean = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        result = json.loads(clean)
+        result["phase"] = phase
+        return result
+    except Exception as e:
+        print(f"AI prescription error: {e}")
+        return {"error": str(e)}
 
 class PrescriptionRequest(BaseModel):
     exercises: list
