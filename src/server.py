@@ -127,27 +127,28 @@ def get_1rms():
         return {}
 
 def get_recent_performance(exercise_names, days=14):
-    """Get last N days of performance per exercise for AI context."""
+    """Get last N days of best sets per exercise for AI context."""
     try:
         conn = get_conn()
         cur  = conn.cursor()
         cutoff = date.today() - timedelta(days=days)
         cur.execute("""
-            SELECT exercise_name, date, MAX(weight) as max_weight, MAX(reps) as max_reps
+            SELECT DISTINCT ON (exercise_name, date)
+                exercise_name, date, weight, reps,
+                weight * (1 + reps / 30.0) as estimated_1rm
             FROM workouts
             WHERE weight > 0 AND reps > 0 AND date >= %s
             AND exercise_name = ANY(%s)
-            GROUP BY exercise_name, date
-            ORDER BY exercise_name, date DESC
+            ORDER BY exercise_name, date DESC, (weight * (1 + reps / 30.0)) DESC
         """, (cutoff, exercise_names))
         rows = cur.fetchall()
         conn.close()
         result = {}
-        for ex, d, w, r in rows:
+        for ex, d, w, r, e1rm in rows:
             if ex not in result:
                 result[ex] = []
             if len(result[ex]) < 3:
-                result[ex].append({"date": str(d), "weight": w, "reps": r})
+                result[ex].append({"date": str(d), "weight": w, "reps": r, "estimated_1rm": round(e1rm, 1)})
         return result
     except Exception as e:
         print(f"DB error in get_recent_performance: {e}")
