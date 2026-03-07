@@ -3,6 +3,21 @@ import { supabase } from "./supabase";
 
 const API = "https://atlas-production-d795.up.railway.app";
 
+async function getAuthHeaders() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return {
+    "Content-Type": "application/json",
+    ...(session ? { "Authorization": `Bearer ${session.access_token}` } : {})
+  };
+}
+
+function getAuthHeadersSync(session) {
+  return {
+    "Content-Type": "application/json",
+    ...(session ? { "Authorization": `Bearer ${session.access_token}` } : {})
+  };
+}
+
 const USER_PROFILE = {
   name: "Sinjin",
   age: null,
@@ -338,7 +353,7 @@ async function generateAIPrescription(exercises, checkin, serverState) {
   const readiness = calcReadiness(checkin);
   const response = await fetch(`${API}/prescribe/ai`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await getAuthHeaders(),
     body: JSON.stringify({
       exercises,
       readiness,
@@ -546,7 +561,7 @@ function CheckIn({ onComplete, existing }) {
     try {
       await fetch(`${API}/checkin`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           sleep_hours:   vals.sleep * 10,
           sleep_quality: vals.sleep,
@@ -1473,10 +1488,10 @@ export default function App() {
   const [serverExercises, setServerExercises] = useState(null);
   const [loadingCheckin, setLoadingCheckin]   = useState(true);
 
-  const loadData = () => {
+  const loadData = async () => {
     fetch(`${API}/state`).then(r => r.json()).then(setServerState).catch(() => {});
     fetch(`${API}/exercises`).then(r => r.json()).then(setServerExercises).catch(() => {});
-    fetch(`${API}/checkin/today`).then(r => r.json()).then(data => {
+    getAuthHeaders().then(headers => fetch(`${API}/checkin/today`, { headers })).then(r => r.json()).then(data => {
       if (data.exists) setCheckin(serverToLocalCheckin(data.data));
       setLoadingCheckin(false);
     }).catch(() => setLoadingCheckin(false));

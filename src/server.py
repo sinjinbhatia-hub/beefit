@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import psycopg2
@@ -9,6 +9,10 @@ import os
 import httpx
 from datetime import date, timedelta
 from collections import defaultdict
+from typing import Optional
+import jwt as pyjwt
+
+SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "your-supabase-jwt-secret")
 
 app = FastAPI()
 
@@ -21,7 +25,7 @@ app.add_middleware(
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://postgres:GUlVZnKeNQoLXPbOkIqyFAEcnCMHDVSF@shuttle.proxy.rlwy.net:31411/railway"
+    "postgresql://postgres:Iluv2lift2!@db.fqqczbnmjcmgnbhllgmi.supabase.co:5432/postgres"
 )
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "[REMOVED-ROTATED-KEY]")
 TAU_FITNESS  = 45
@@ -293,6 +297,17 @@ CUMULATIVE FATIGUE:
 === END COACHING KNOWLEDGE BASE ===
 """
 
+def get_user_id(authorization: Optional[str] = None) -> Optional[str]:
+    """Extract user_id from Supabase JWT token."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = pyjwt.decode(token, options={"verify_signature": False})
+        return payload.get("sub")
+    except Exception:
+        return None
+
 # ── DB Helpers ────────────────────────────────────────────────────────────────
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
@@ -501,11 +516,15 @@ def get_exercises():
         return {"exercises": {}, "splits": {}}
 
 @app.get("/checkin/today")
-def get_today_checkin():
+def get_today_checkin(authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)
     try:
         conn = get_conn()
         cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT * FROM checkins WHERE date = %s", (date.today(),))
+        if user_id:
+            cur.execute("SELECT * FROM checkins WHERE date = %s AND user_id = %s", (date.today(), user_id))
+        else:
+            cur.execute("SELECT * FROM checkins WHERE date = %s", (date.today(),))
         row = cur.fetchone()
         conn.close()
         if not row: return {"exists": False}
@@ -524,7 +543,8 @@ class CheckInPayload(BaseModel):
     notes:         str = ""
 
 @app.post("/checkin")
-def submit_checkin(payload: CheckInPayload):
+def submit_checkin(payload: CheckInPayload, authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)
     avg_soreness = sum(payload.soreness.values()) / max(len(payload.soreness), 1)
     readiness = round(
         0.35 * payload.sleep_quality + 0.30 * (1 - avg_soreness) +
@@ -535,13 +555,13 @@ def submit_checkin(payload: CheckInPayload):
         cur  = conn.cursor()
         cur.execute("""
             INSERT INTO checkins (
-                date, sleep_hours, sleep_quality, mood, nutrition, stress,
+                user_id, date, sleep_hours, sleep_quality, mood, nutrition, stress,
                 avg_soreness, readiness, notes,
                 soreness_quads, soreness_hamstrings, soreness_glutes,
                 soreness_back, soreness_chest, soreness_shoulders,
                 soreness_biceps, soreness_triceps
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (date) DO UPDATE SET
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (user_id, date) DO UPDATE SET
                 sleep_hours=EXCLUDED.sleep_hours, sleep_quality=EXCLUDED.sleep_quality,
                 mood=EXCLUDED.mood, nutrition=EXCLUDED.nutrition, stress=EXCLUDED.stress,
                 avg_soreness=EXCLUDED.avg_soreness, readiness=EXCLUDED.readiness,
@@ -551,7 +571,7 @@ def submit_checkin(payload: CheckInPayload):
                 soreness_chest=EXCLUDED.soreness_chest, soreness_shoulders=EXCLUDED.soreness_shoulders,
                 soreness_biceps=EXCLUDED.soreness_biceps, soreness_triceps=EXCLUDED.soreness_triceps
         """, (
-            date.today(), payload.sleep_hours, payload.sleep_quality,
+            user_id, date.today(), payload.sleep_hours, payload.sleep_quality,
             payload.mood, payload.nutrition, payload.stress,
             round(avg_soreness, 3), readiness, payload.notes,
             payload.soreness.get("quads",0), payload.soreness.get("hamstrings",0),
