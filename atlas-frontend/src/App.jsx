@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "./supabase";
 
 const API = "https://atlas-production-d795.up.railway.app";
 
@@ -1347,8 +1348,122 @@ function History() {
   );
 }
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function Auth() {
+  const [mode, setMode]       = useState("login"); // login | signup | forgot
+  const [email, setEmail]     = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName]       = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState(null);
+  const [message, setMessage] = useState(null);
+
+  const handleLogin = async () => {
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    setLoading(false);
+  };
+
+  const handleSignup = async () => {
+    if (!name.trim()) { setError("Name is required"); return; }
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { name } }
+    });
+    if (error) setError(error.message);
+    else setMessage("Check your email to confirm your account, then log in.");
+    setLoading(false);
+  };
+
+  const handleForgot = async () => {
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) setError(error.message);
+    else setMessage("Password reset email sent.");
+    setLoading(false);
+  };
+
+  const inputStyle = {
+    width:"100%", background:"var(--bg2)", border:"1px solid var(--border)",
+    color:"var(--text)", fontFamily:"var(--font-body)", fontSize:"15px",
+    padding:"14px 16px", outline:"none", marginBottom:"12px", display:"block"
+  };
+
+  return (
+    <div style={{minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center", padding:"24px"}}>
+      <div style={{width:"100%", maxWidth:"400px"}}>
+        <div style={{textAlign:"center", marginBottom:"40px"}}>
+          <div style={{fontFamily:"var(--font-display)", fontSize:"42px", fontWeight:700, letterSpacing:"8px", color:"var(--accent)", textShadow:"0 0 30px rgba(0,229,255,0.3)"}}>
+            ATL<span style={{color:"var(--muted)", fontWeight:300}}>A</span>S
+          </div>
+          <div style={{fontFamily:"var(--font-mono)", fontSize:"10px", color:"var(--muted)", letterSpacing:"4px", marginTop:"8px"}}>
+            AI STRENGTH COACH
+          </div>
+        </div>
+
+        <div style={{background:"var(--bg2)", border:"1px solid var(--border)", borderTop:"2px solid var(--accent)", padding:"32px"}}>
+          <div style={{fontFamily:"var(--font-display)", fontSize:"18px", fontWeight:700, letterSpacing:"3px", color:"var(--text)", marginBottom:"24px", textTransform:"uppercase"}}>
+            {mode === "login" ? "Sign In" : mode === "signup" ? "Create Account" : "Reset Password"}
+          </div>
+
+          {error && (
+            <div style={{background:"rgba(255,61,90,0.1)", border:"1px solid var(--red)", color:"var(--red)", fontFamily:"var(--font-mono)", fontSize:"11px", padding:"10px 14px", marginBottom:"16px"}}>
+              {error}
+            </div>
+          )}
+          {message && (
+            <div style={{background:"rgba(0,255,135,0.1)", border:"1px solid var(--green)", color:"var(--green)", fontFamily:"var(--font-mono)", fontSize:"11px", padding:"10px 14px", marginBottom:"16px"}}>
+              {message}
+            </div>
+          )}
+
+          {mode === "signup" && (
+            <input style={inputStyle} placeholder="Your name" value={name}
+              onChange={e => setName(e.target.value)} />
+          )}
+          <input style={inputStyle} placeholder="Email" type="email" value={email}
+            onChange={e => setEmail(e.target.value)} />
+          {mode !== "forgot" && (
+            <input style={inputStyle} placeholder="Password" type="password" value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && (mode === "login" ? handleLogin() : handleSignup())} />
+          )}
+
+          <button className="btn btn-primary" style={{width:"100%", marginTop:"8px"}} disabled={loading}
+            onClick={mode === "login" ? handleLogin : mode === "signup" ? handleSignup : handleForgot}>
+            {loading ? "..." : mode === "login" ? "Sign In" : mode === "signup" ? "Create Account" : "Send Reset Email"}
+          </button>
+
+          <div style={{marginTop:"20px", display:"flex", flexDirection:"column", gap:"8px", alignItems:"center"}}>
+            {mode === "login" && <>
+              <button style={{background:"none", border:"none", color:"var(--muted)", fontFamily:"var(--font-mono)", fontSize:"11px", cursor:"pointer"}}
+                onClick={() => { setMode("signup"); setError(null); setMessage(null); }}>
+                No account? Sign up
+              </button>
+              <button style={{background:"none", border:"none", color:"var(--muted)", fontFamily:"var(--font-mono)", fontSize:"11px", cursor:"pointer"}}
+                onClick={() => { setMode("forgot"); setError(null); setMessage(null); }}>
+                Forgot password?
+              </button>
+            </>}
+            {mode !== "login" && (
+              <button style={{background:"none", border:"none", color:"var(--muted)", fontFamily:"var(--font-mono)", fontSize:"11px", cursor:"pointer"}}
+                onClick={() => { setMode("login"); setError(null); setMessage(null); }}>
+                Back to sign in
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── App Shell ────────────────────────────────────────────────────────────────
 export default function App() {
+  const [session, setSession]                 = useState(null);
+  const [authLoading, setAuthLoading]         = useState(true);
   const [view, setView]                       = useState("dashboard");
   const [checkin, setCheckin]                 = useState(null);
   const [workout, setWorkout]                 = useState(null);
@@ -1365,6 +1480,24 @@ export default function App() {
       if (data.exists) setCheckin(serverToLocalCheckin(data.data));
       setLoadingCheckin(false);
     }).catch(() => setLoadingCheckin(false));
+  };
+
+  // Auth session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setCheckin(null); setWorkout(null); setExes([]); setPrescription(null);
+    setView("dashboard");
   };
 
   useEffect(() => { loadData(); }, []);
@@ -1392,13 +1525,21 @@ export default function App() {
   const VIEWS  = ["dashboard","checkin","workout","prescription","train","history"];
   const LABELS = ["Dashboard","Check-in","Workout","Prescription","Train","History"];
 
+  if (authLoading) return <><style>{STYLE}</style><div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}><div className="loading">LOADING...</div></div></>;
+  if (!session) return <><style>{STYLE}</style><Auth /></>;
+
   return (
     <>
       <style>{STYLE}</style>
       <div className="app">
         <div className="header">
           <div className="logo">ATL<span>A</span>S</div>
-          <div className="date-badge">{today.toUpperCase()}</div>
+          <div style={{display:"flex", alignItems:"center", gap:"16px"}}>
+            <div className="date-badge">{today.toUpperCase()}</div>
+            <button className="btn btn-secondary" style={{padding:"6px 14px", fontSize:"10px"}} onClick={handleSignOut}>
+              Sign Out
+            </button>
+          </div>
         </div>
 
         <div className="nav">
