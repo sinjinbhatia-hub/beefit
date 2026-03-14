@@ -944,6 +944,38 @@ function WorkoutTracker({ workout, prescription, checkin, exercises, onFinish, o
     return `${m}:${sec.toString().padStart(2,'0')}`;
   };
 
+  // Save all completed sets to DB
+  const saveSession = (currentExStates) => {
+    const allSets = [];
+    currentExStates.forEach((ex) => {
+      ex.sets.forEach((s, si) => {
+        if (s.done && s.weight && s.reps) {
+          allSets.push({
+            exercise_name: ex.name,
+            set_order:     si + 1,
+            weight:        parseFloat(s.weight),
+            reps:          parseInt(s.reps),
+            rir:           s.rir ?? null,
+          });
+        }
+      });
+    });
+    if (allSets.length > 0) {
+      getAuthHeaders().then(headers =>
+        fetch(`${API}/workout/log`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ workout_name: workout, sets: allSets })
+        })
+      ).catch(() => {});
+    }
+  };
+
+  const handleEndSession = () => {
+    saveSession(exStates);
+    onNewDay();
+  };
+
   const updateSet = (exIdx, setIdx, field, value) => {
     setExStates(prev => {
       const next = prev.map((ex, ei) => {
@@ -1017,7 +1049,16 @@ function WorkoutTracker({ workout, prescription, checkin, exercises, onFinish, o
       setExStates(prev => prev.map((ex, ei) => ei === exIdx ? {...ex, allDone: true} : ex));
       // Move to next exercise
       if (exIdx + 1 < exStates.length) setActiveExIdx(exIdx + 1);
-      else setSessionDone(true);
+      else {
+        setSessionDone(true);
+        // Save all completed sets — pass updated state inline since setState is async
+        const finalStates = exStates.map((ex, ei) => {
+          if (ei !== exIdx) return ex;
+          const sets = ex.sets.map((s, si) => si === setIdx ? {...s, done: true} : s);
+          return {...ex, sets, allDone: true};
+        });
+        saveSession(finalStates);
+      }
     }
   };
 
@@ -1043,7 +1084,7 @@ function WorkoutTracker({ workout, prescription, checkin, exercises, onFinish, o
             {exStates.filter(e => e.allDone).length}/{exStates.length} exercises · {formatElapsed(elapsed)}
           </div>
         </div>
-        <button className="btn btn-secondary" style={{padding:"8px 16px", fontSize:"11px"}} onClick={onNewDay}>
+        <button className="btn btn-secondary" style={{padding:"8px 16px", fontSize:"11px"}} onClick={handleEndSession}>
           End Session
         </button>
       </div>
@@ -1155,26 +1196,32 @@ function History() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API}/history/sessions?limit=${LIMIT}&offset=${offset}`)
-      .then(r => r.json())
-      .then(data => { setSessions(data.sessions); setTotal(data.total); setLoading(false); })
-      .catch(() => setLoading(false));
+    getAuthHeaders().then(headers =>
+      fetch(`${API}/history/sessions?limit=${LIMIT}&offset=${offset}`, { headers })
+        .then(r => r.json())
+        .then(data => { setSessions(data.sessions); setTotal(data.total); setLoading(false); })
+        .catch(() => setLoading(false))
+    );
   }, [offset]);
 
   const openSession = (s) => {
     setSelected(s);
     setDetail(null);
-    fetch(`${API}/history/session/${s.date}`)
-      .then(r => r.json())
-      .then(setDetail);
+    getAuthHeaders().then(headers =>
+      fetch(`${API}/history/session/${s.date}`, { headers })
+        .then(r => r.json())
+        .then(setDetail)
+    );
   };
 
   const openExercise = (name) => {
     setExerciseView(name);
     setExHistory(null);
-    fetch(`${API}/history/exercise/${encodeURIComponent(name)}`)
-      .then(r => r.json())
-      .then(setExHistory);
+    getAuthHeaders().then(headers =>
+      fetch(`${API}/history/exercise/${encodeURIComponent(name)}`, { headers })
+        .then(r => r.json())
+        .then(setExHistory)
+    );
   };
 
   const formatVol = (v) => v ? (v / 1000).toFixed(1) + 'K' : '—';
