@@ -312,14 +312,20 @@ def get_user_id(authorization: Optional[str] = None) -> Optional[str]:
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
-def compute_banister():
+def compute_banister(user_id=None):
     try:
         conn = get_conn()
         cur  = conn.cursor()
-        cur.execute("""
-            SELECT date, exercise_name, weight, reps
-            FROM workouts WHERE weight > 0 AND reps > 0 ORDER BY date
-        """)
+        if user_id:
+            cur.execute("""
+                SELECT date, exercise_name, weight, reps
+                FROM workouts WHERE weight > 0 AND reps > 0 AND user_id = %s ORDER BY date
+            """, (user_id,))
+        else:
+            cur.execute("""
+                SELECT date, exercise_name, weight, reps
+                FROM workouts WHERE weight > 0 AND reps > 0 ORDER BY date
+            """)
         rows = cur.fetchall()
         conn.close()
     except Exception as e:
@@ -496,11 +502,16 @@ def debug_exercise(exercise_name: str, days: int = 30):
         return {"error": str(e)}
 
 @app.get("/state")
-def get_state():
-    fitness, fatigue, history = compute_banister()
-    phase = detect_phase(fitness, fatigue)
-    return {"fitness": round(fitness,1), "fatigue": round(fatigue,1),
-            "performance": round(fitness-fatigue,1), "phase": phase, "history": history[-90:]}
+def get_state(authorization: Optional[str] = Header(None)):
+    user_id = get_user_id(authorization)
+    try:
+        fitness, fatigue, history = compute_banister(user_id)
+        phase = detect_phase(fitness, fatigue)
+        return {"fitness": round(fitness,1), "fatigue": round(fatigue,1),
+                "performance": round(fitness-fatigue,1), "phase": phase, "history": history[-90:]}
+    except Exception as e:
+        print(f"Error in get_state: {e}")
+        return {"fitness": 0, "fatigue": 0, "performance": 0, "phase": "accumulation", "history": [], "error": str(e)}
 
 @app.get("/exercises")
 def get_exercises():
