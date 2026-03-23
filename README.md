@@ -1,57 +1,73 @@
-# Atlas
-### Adaptive Training & Load Optimization System
+# Atlas — AI Strength Coach
 
-Atlas is a daily adaptive coaching system that replaces static weekly training programs with a data-driven, physiologically-grounded model that adjusts every single day based on who you are *that day*.
+A full-stack AI-powered strength coaching app built for the App Store.
 
----
+## Overview
 
-## The Problem
+Atlas is a personalized training platform that uses machine learning and coaching science to prescribe workouts, adapt training in real-time, and track long-term athletic development.
 
-Every existing coaching model — human or app — operates on a fixed-schedule paradigm. A coach writes a program on Monday, you follow it all week regardless of what happens to your body, sleep, stress, or life. That's not optimization, that's scheduling.
+**Live:** [atlas-zeta-six.vercel.app](https://atlas-zeta-six.vercel.app)
 
-A coach who sees you once a week has 1 data point. Atlas has 7, plus context a human coach never captures: how loud your dorm was, whether you had two exams, whether you ate once or three times.
+## Features
 
-**More data points = better optimization.**
+- **AI Prescription Engine** — Claude-powered workout prescriptions using the Banister impulse-response model, RIR-based load management, and 6+ years of training history
+- **Intra-workout Adaptation** — Real-time set-by-set weight adjustments based on RIR feedback
+- **Banister Model** — Fitness/fatigue modeling across a 45-day fitness and 7-day fatigue time constant to determine training phase (accumulation → intensification → peak → deload)
+- **Pattern Detection** — Identifies top set + backoff, straight sets, pyramid, and reverse pyramid from raw session data
+- **Daily Check-in** — Readiness scoring from sleep, mood, nutrition, stress, and per-muscle soreness
+- **Workout History** — Full session log, exercise progress charts, and estimated 1RM progression
+- **Multi-user Auth** — Supabase authentication with row-level security
+- **Import** — CSV import from Strong and other lifting apps
 
----
+## Stack
 
-## What Makes Atlas Different
+| Layer | Tech |
+|-------|------|
+| Frontend | React + Vite, deployed on Vercel |
+| Backend | FastAPI (Python), deployed on Railway |
+| Database | PostgreSQL on Supabase with RLS |
+| Auth | Supabase Auth (email + Apple Sign In planned) |
+| AI | Anthropic Claude (claude-sonnet-4) |
 
-- **No static schedules** — peak week, deload, and PR attempts are triggered by your actual fitness/fatigue curve, not a calendar
-- **Multi-sport** — works for powerlifters, basketball players, golfers, calisthenics athletes, and anyone in between
-- **Daily adaptation** — sleep 4 hours in a loud dorm? Your prescribed load drops automatically
-- **Gets smarter over time** — model parameters are personalized to your physiology as data accumulates
-
----
-
-## Mathematical Foundation
-
-Built on the Banister Fitness-Fatigue Model (a system of first-order ODEs), with a daily readiness scoring layer, constrained load prescription, and a Bayesian updating mechanism for personalizing model parameters over time.
-
-See `/design/math_model.md` for full derivation.
-
----
-
-## Project Structure
+## Architecture
 
 ```
-atlas/
-├── design/
-│   ├── overview.md          # Vision, problem statement, product thesis
-│   ├── math_model.md        # Full mathematical framework
-│   └── data_structures.md  # Database schema and entity relationships
-├── notebooks/
-│   └── banister_model.ipynb # Math prototyping in Python
-├── src/                     # Application code (coming soon)
-└── README.md
+User → Vercel (React) → Railway (FastAPI) → Supabase (Postgres)
+                     ↓
+              Anthropic API
 ```
 
----
+The backend handles:
+- Banister model computation across full training history
+- Pattern recognition from raw set data
+- AI prescription generation with coaching knowledge base injection
+- Per-user data isolation via JWT + RLS
 
-## Status
+## Running Locally
 
-> Currently in design phase. Mathematical framework complete. Data structures designed. Beginning Python prototype.
+**Backend:**
+```bash
+cd src
+pip install -r requirements.txt
+DATABASE_URL=... ANTHROPIC_API_KEY=... uvicorn server:app --reload
+```
 
----
+**Frontend:**
+```bash
+cd atlas-frontend
+npm install
+npm run dev
+```
 
-*Built by Sinjin Bhatia — Ohio State University, Mechanical Engineering & Applied Mathematics*
+## Roadmap
+
+- [ ] Apple Sign In
+- [ ] Stripe subscriptions
+- [ ] Capacitor iOS wrapper
+- [ ] App Store submission
+- [ ] Profile setup on first login
+- [ ] CSV import UI
+
+## Background
+
+Built as an independent project exploring the intersection of strength training science, LLM-based coaching, and mobile product development.

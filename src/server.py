@@ -12,7 +12,7 @@ from collections import defaultdict
 from typing import Optional
 import jwt as pyjwt
 
-SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "your-supabase-jwt-secret")
+SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 
 app = FastAPI()
 
@@ -23,11 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://postgres.fqqczbnmjcmgnbhllgmi:Iluv2lift2!@aws-0-us-west-2.pooler.supabase.com:6543/postgres"
-)
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "PASTE_YOUR_KEY_HERE")
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 TAU_FITNESS  = 45
 TAU_FATIGUE  = 7
 EXERCISES_FILE = "exercises.json"
