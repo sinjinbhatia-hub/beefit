@@ -23,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+DATABASE_URL = os.environ.get("SUPABASE_URL", os.environ.get("DATABASE_URL", ""))
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 TAU_FITNESS  = 45
 TAU_FATIGUE  = 7
